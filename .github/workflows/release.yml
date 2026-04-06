@@ -1,0 +1,65 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build executable
+        run: pyinstaller build.spec
+
+      - name: Rename executable with version tag
+        run: |
+          $version = "${{ github.ref_name }}"
+          Rename-Item -Path "dist\PROJECT-4414.exe" -NewName "PROJECT-4414-$version.exe"
+        shell: pwsh
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "PROJECT 4414 — ${{ github.ref_name }}"
+          body: |
+            ## PROJECT 4414 — ASCII INTERFACE ${{ github.ref_name }}
+
+            Aplicación de escritorio que convierte el feed de tu webcam en arte ASCII en tiempo real.
+
+            ### Instalación
+            1. Descarga el `.exe`
+            2. Coloca tu `.env` en la misma carpeta (opcional — se usan defaults si no existe)
+            3. Ejecuta `PROJECT-4414-${{ github.ref_name }}.exe`
+
+            ### Requisitos
+            - Windows 10/11 64-bit
+            - Webcam conectada
+          files: dist/PROJECT-4414-${{ github.ref_name }}.exe
+          draft: false
+          prerelease: false

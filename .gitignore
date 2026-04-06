@@ -6,8 +6,8 @@ __pycache__/
 *.pyc
 
 # ── Variables de entorno ───────────────────────────────────────
-.env
 .env.*
+.env.local
 
 # ── Entornos virtuales ─────────────────────────────────────────
 .venv/
@@ -45,6 +45,9 @@ desktop.ini
 
 # ── PyInstaller ───────────────────────────────────────────────
 *.manifest
+dist/
+build/
+!build.spec
 *.exe
 
 # ── Pytest / coverage ─────────────────────────────────────────
