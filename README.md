@@ -11,25 +11,6 @@
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License">
 </p>
 
-<h2 align="center">⬇️ Descargar</h2>
-
-<p align="center">
-  <a href="https://github.com/OyasumiDev/PROJECT-4414-ASCII-INTERFACE/releases/latest/download/PROJECT-4414.exe">
-    <img src="https://img.shields.io/badge/Descargar-.exe-blueviolet?logo=windows&logoColor=white&style=for-the-badge" alt="Descargar EXE" height="45">
-  </a>
-  &nbsp;&nbsp;
-  <a href="https://github.com/OyasumiDev/PROJECT-4414-ASCII-INTERFACE/releases/latest" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/github/v/release/OyasumiDev/PROJECT-4414-ASCII-INTERFACE?label=Latest%20Release&logo=github&style=for-the-badge&color=gray" alt="Latest Release" height="45">
-  </a>
-</p>
-
-<p align="center">
-  No necesitas tener Python instalado — descarga <strong>PROJECT-4414.exe</strong> y ejecútalo directamente.<br>
-  <sub>Requiere Windows 10 / 11 (64-bit) y webcam conectada.</sub>
-</p>
-
----
-
 <h1 align="center">MIS REDES</h1>
 
 <p align="center">
@@ -40,6 +21,26 @@
   <a href="https://www.tiktok.com/@oyasumi_dev" target="_blank" rel="noopener noreferrer">
     <img src="https://img.shields.io/badge/TikTok-@oyasumi__dev-000000?logo=tiktok&logoColor=white&style=for-the-badge" alt="TikTok" height="40">
   </a>
+</p>
+
+---
+
+<h2 align="center">DESCARGA</h2>
+
+<p align="center">
+  <a href="https://github.com/OyasumiDev/PROJECT-4414-ASCII-INTERFACE/releases/latest/download/PROJECT-4414.exe">
+    <img src="https://img.shields.io/github/v/release/OyasumiDev/PROJECT-4414-ASCII-INTERFACE?label=Download%20for%20Windows&logo=windows&logoColor=white&style=for-the-badge&color=0078D4" alt="Download for Windows" height="48">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/OyasumiDev/PROJECT-4414-ASCII-INTERFACE/releases/latest">
+    <img src="https://img.shields.io/github/downloads/OyasumiDev/PROJECT-4414-ASCII-INTERFACE/total?style=flat-square&color=555&label=total%20downloads" alt="Total downloads">
+  </a>
+  &nbsp;
+  <img src="https://img.shields.io/badge/platform-Windows%2010%2F11%20%C2%B7%2064--bit-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows 10/11 64-bit">
+  &nbsp;
+  <img src="https://img.shields.io/badge/no%20install%20required-just%20run%20the%20.exe-brightgreen?style=flat-square" alt="No install required">
 </p>
 
 <p align="center">
