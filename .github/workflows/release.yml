@@ -50,26 +50,18 @@ jobs:
           body: |
             ## PROJECT 4414 — ASCII INTERFACE ${{ github.ref_name }}
 
-            > Desktop app that converts your webcam feed into real-time ASCII art.
-            > Aplicación de escritorio que convierte el feed de tu webcam en arte ASCII en tiempo real.
+            Aplicación de escritorio que convierte el feed de tu webcam en arte ASCII en tiempo real.
 
             ---
 
-            ### 🇬🇧 How to run
-            1. Download `PROJECT-4414-${{ github.ref_name }}.exe` below
-            2. Place your `.env` in the same folder *(optional — defaults are used if missing)*
-            3. Run the `.exe` — no Python installation required
-
-            ### 🇪🇸 Cómo ejecutar
+            ### Cómo ejecutar
             1. Descarga `PROJECT-4414-${{ github.ref_name }}.exe` abajo
             2. Coloca tu `.env` en la misma carpeta *(opcional — se usan defaults si no existe)*
             3. Ejecuta el `.exe` — no se necesita tener Python instalado
 
-            ---
-
-            ### Requirements / Requisitos
+            ### Requisitos
             - Windows 10 / 11 — 64-bit
-            - Webcam conectada / connected webcam
+            - Webcam conectada
           files: dist/PROJECT-4414-${{ github.ref_name }}.exe
           draft: false
           prerelease: false

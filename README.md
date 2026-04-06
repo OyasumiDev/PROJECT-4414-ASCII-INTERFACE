@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License">
 </p>
 
-<h2 align="center">⬇️ Download / Descargar</h2>
+<h2 align="center">⬇️ Descargar</h2>
 
 <p align="center">
   <a href="https://github.com/OyasumiDev/PROJECT-4414-ASCII-INTERFACE/releases/latest" target="_blank" rel="noopener noreferrer">
@@ -20,8 +20,7 @@
 </p>
 
 <p align="center">
-  <b>🇬🇧 No Python required — just download and run the <code>.exe</code></b><br>
-  <b>🇪🇸 Sin necesidad de Python — descarga y ejecuta el <code>.exe</code> directamente</b>
+  No necesitas tener Python instalado — descarga el <code>.exe</code> y ejecútalo directamente.
 </p>
 
 ---
