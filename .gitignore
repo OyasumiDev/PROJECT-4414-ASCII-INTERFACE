@@ -1,0 +1,54 @@
+# ── Python cache ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# ── Variables de entorno ───────────────────────────────────────
+.env
+.env.*
+
+# ── Entornos virtuales ─────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Claude Code ────────────────────────────────────────────────
+.claude/
+
+# ── Herramientas de build / distribución ──────────────────────
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+*.spec
+
+# ── IDEs ──────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.user
+
+# ── Sistema operativo ─────────────────────────────────────────
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ── Logs y temporales ─────────────────────────────────────────
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# ── PyInstaller ───────────────────────────────────────────────
+*.manifest
+*.exe
+
+# ── Pytest / coverage ─────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
