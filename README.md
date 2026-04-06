@@ -14,13 +14,18 @@
 <h2 align="center">⬇️ Descargar</h2>
 
 <p align="center">
+  <a href="https://github.com/OyasumiDev/PROJECT-4414-ASCII-INTERFACE/releases/latest/download/PROJECT-4414.exe">
+    <img src="https://img.shields.io/badge/Descargar-.exe-blueviolet?logo=windows&logoColor=white&style=for-the-badge" alt="Descargar EXE" height="45">
+  </a>
+  &nbsp;&nbsp;
   <a href="https://github.com/OyasumiDev/PROJECT-4414-ASCII-INTERFACE/releases/latest" target="_blank" rel="noopener noreferrer">
-    <img src="https://img.shields.io/github/v/release/OyasumiDev/PROJECT-4414-ASCII-INTERFACE?label=Latest%20Release&logo=github&style=for-the-badge&color=blueviolet" alt="Latest Release" height="40">
+    <img src="https://img.shields.io/github/v/release/OyasumiDev/PROJECT-4414-ASCII-INTERFACE?label=Latest%20Release&logo=github&style=for-the-badge&color=gray" alt="Latest Release" height="45">
   </a>
 </p>
 
 <p align="center">
-  No necesitas tener Python instalado — descarga el <code>.exe</code> y ejecútalo directamente.
+  No necesitas tener Python instalado — descarga <strong>PROJECT-4414.exe</strong> y ejecútalo directamente.<br>
+  <sub>Requiere Windows 10 / 11 (64-bit) y webcam conectada.</sub>
 </p>
 
 ---

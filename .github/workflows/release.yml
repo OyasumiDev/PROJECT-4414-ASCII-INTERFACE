@@ -1,0 +1,54 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Create .env with defaults
+        shell: pwsh
+        run: |
+          @"
+          CAM_INDEX=0
+          DEFAULT_COLS=100
+          DEFAULT_FPS=15
+          DEFAULT_FONT_SIZE=8
+          DEFAULT_INVERT=false
+          DEFAULT_CHARSET=SIMPLE
+          "@ | Set-Content .env -Encoding UTF8
+
+      - name: Build EXE
+        run: pyinstaller build.spec --clean
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "PROJECT 4414 — ASCII INTERFACE ${{ github.ref_name }}"
+          body: |
+            ## Descarga directa
+            Descarga **PROJECT-4414.exe** y ejecútalo directamente.
+            No requiere Python ni ninguna dependencia instalada.
+
+            ## Requisitos
+            - Windows 10 / 11 (64-bit)
+            - Webcam conectada
+          files: dist/PROJECT-4414.exe
