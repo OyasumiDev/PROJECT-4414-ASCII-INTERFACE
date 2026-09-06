@@ -1,48 +1,52 @@
 """
-ascii_converter.py  ← TU ALGORITMO PRINCIPAL
-Convierte un frame numpy (escala de grises) a un string ASCII.
-No usa ninguna librería que haga la conversión automáticamente.
-Todo el mapeo pixel → char es manual con numpy.
+ascii_converter.py  ← ALGORITMO PRINCIPAL
+Mapea intensidad de píxel → carácter. Todo el mapeo es manual con numpy.
+
+Dos entradas:
+    to_index_grid(gray_small, invert, charset_key)
+        Ruta rápida usada por el worker. Recibe la imagen en gris YA reducida a
+        la rejilla (rows, cols) y devuelve el grid de ÍNDICES de carácter
+        (numpy uint8) + la paleta. No construye ningún string.
+    convert(frame, cols, invert, charset_key) -> str
+        Compat: acepta un frame en gris a cualquier resolución y devuelve el
+        arte ASCII como string multilínea (lo re-deriva a partir del grid).
 """
+import cv2
 import numpy as np
+
 from app.enums.e_charset import CharSet
+
+# Los caracteres de terminal son ~2× más altos que anchos: se compensa el
+# aspect ratio con este factor al calcular el nº de filas.
+_CHAR_ASPECT = 0.43
 
 
 class AsciiConverter:
-    def convert(self, frame: np.ndarray, cols: int, invert: bool, charset_key: str) -> str:
-        """
-        Parámetros:
-            frame       → numpy 2D (escala de grises, valores 0-255)
-            cols        → número de columnas de caracteres en el output
-            invert      → invertir la paleta (útil con fondo blanco)
-            charset_key → key de CharSet enum
+    def rows_for(self, cols: int, src_w: int, src_h: int) -> int:
+        """Nº de filas ASCII que mantiene el aspect ratio de la fuente."""
+        return max(1, int(cols * (src_h / max(1, src_w)) * _CHAR_ASPECT))
 
-        Retorna:
-            string multilínea con el arte ASCII
+    def to_index_grid(
+        self, gray_small: np.ndarray, invert: bool, charset_key: str
+    ) -> tuple[np.ndarray, str]:
         """
-
+        gray_small : imagen en gris uint8 YA redimensionada a (rows, cols).
+        Devuelve   : (grid uint8 (rows, cols) con el índice en la paleta, chars).
+        """
         chars = self._get_chars(charset_key, invert)
+        n_max = len(chars) - 1
+        grid = (gray_small.astype(np.float32) * (n_max / 255.0)).astype(np.uint8)
+        np.clip(grid, 0, n_max, out=grid)          # defensivo (grid diminuto)
+        return grid, chars
 
-        # ── 1. Obtener dimensiones originales del frame ──────────────────
-        h_orig, w_orig = frame.shape
-
-        # ── 2. Calcular filas manteniendo aspect ratio ───────────────────
-        #       Los chars son más altos que anchos (~2:1), se compensa con 0.43
-        char_aspect = 0.43
-        rows = max(1, int(cols * (h_orig / w_orig) * char_aspect))
-
-        # ── 3. Redimensionar frame al tamaño de la cuadrícula ASCII ──────
-        import cv2
+    def convert(self, frame: np.ndarray, cols: int, invert: bool, charset_key: str) -> str:
+        """Compat: frame en gris (cualquier tamaño) → string ASCII multilínea."""
+        h, w = frame.shape[:2]
+        rows = self.rows_for(cols, w, h)
         small = cv2.resize(frame, (cols, rows), interpolation=cv2.INTER_AREA)
-
-        # ── 4. Mapear cada pixel a un carácter ───────────────────────────
-        #       Normalizar 0-255 → índice en chars
-        n_chars   = len(chars) - 1
-        char_grid = (small / 255.0 * n_chars).astype(int)
-
-        # ── 5. Construir string fila por fila ────────────────────────────
-        lines = ["".join(chars[char_grid[y, x]] for x in range(cols)) for y in range(rows)]
-        return "\n".join(lines)
+        grid, chars = self.to_index_grid(small, invert, charset_key)
+        table = np.array(list(chars))
+        return "\n".join("".join(row) for row in table[grid])
 
     def _get_chars(self, key: str, invert: bool) -> str:
         try:

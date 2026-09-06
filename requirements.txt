@@ -3,3 +3,4 @@ opencv-python>=4.13.0
 numpy>=2.4.0
 Pillow>=12.2.0
 python-dotenv>=1.2.0
+mss>=9.0.1

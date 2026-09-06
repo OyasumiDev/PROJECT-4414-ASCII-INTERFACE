@@ -2,7 +2,8 @@
 params_widget.py — Panel lateral de parámetros de conversión ASCII.
 
 Expone al usuario los controles para ajustar en tiempo real:
-    - Columnas      : densidad horizontal del arte ASCII (20–300).
+    - Columnas      : densidad horizontal del arte ASCII (20–500).
+    - Brillo        : curva gamma sobre el frame (50–220; 100 = neutro, >100 aclara).
     - FPS target    : frecuencia de captura deseada (1–120).
     - Tamaño fuente : tamaño en px de la fuente monoespaciada (4–24).
     - Resolución    : 480p / 720p / 1080p.
@@ -40,8 +41,12 @@ class ParamsWidget(QWidget):
         layout.addWidget(_header("Parámetros"))
 
         layout.addWidget(_labeled_slider(
-            "Columnas", 20, 300, p.cols,
+            "Columnas", 20, 500, p.cols,
             lambda v: self._ctrl.set_cols(v),
+        ))
+        layout.addWidget(_labeled_slider(
+            "Brillo", 50, 220, p.brightness,
+            lambda v: self._ctrl.set_brightness(v),
         ))
         layout.addWidget(_labeled_slider(
             "FPS target", 1, 120, p.fps,

@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from app.config.config import (
     DEFAULT_COLS, DEFAULT_FPS, DEFAULT_FONT_SIZE,
-    DEFAULT_INVERT, DEFAULT_CHARSET
+    DEFAULT_INVERT, DEFAULT_CHARSET, DEFAULT_BRIGHTNESS,
 )
 
 
@@ -18,3 +18,4 @@ class AsciiParams:
     charset: str     = DEFAULT_CHARSET   # key del enum CharSet
     color_mode: bool = False             # True = modo color RGB
     resolution: tuple = (640, 480)       # (width, height): 480p / 720p / 1080p
+    brightness: int  = DEFAULT_BRIGHTNESS  # 100 = neutro; >100 aclara (gamma)

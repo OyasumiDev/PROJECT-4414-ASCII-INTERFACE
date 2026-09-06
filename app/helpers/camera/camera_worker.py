@@ -1,73 +1,50 @@
 """
-camera_worker.py — Thread de captura, procesado y entrega de frames ASCII.
+camera_worker.py — Worker de captura de webcam → ASCII.
 
-Ciclo de vida:
-    1. Apertura de la cámara (DSHOW → MSMF como fallback) con timeout por intento.
-    2. Negociación de formato: FOURCC MJPG → resolución (orden necesario para DSHOW).
-    3. Loop principal: captura → detección de lag → preprocesado → conversión ASCII
-       → renderizado PNG → entrega via on_frame().
-    4. Si el stream se corta, intenta reconexión automática hasta _MAX_RECONNECT_TOTAL.
-    5. Si la cámara se desconecta físicamente (handle 0×0), avisa al usuario y se detiene.
+Implementa los hooks de BaseCaptureWorker para una fuente cv2.VideoCapture:
 
-Callbacks recibidos por MainWindow via _FrameBridge (thread-safe):
-    on_frame(AsciiFrame | None) — None indica error fatal.
-    on_status(msg, level)       — mensajes info/warn/error para la UI.
+    _setup()        Apertura DSHOW → MSMF (fallback) con timeout por intento y
+                    retries; negociación de formato MJPG + resolución en el orden
+                    correcto para DSHOW (BUFFERSIZE → FOURCC → WIDTH → HEIGHT).
+    _read_frame()   cap.read().
+    _apply_params() Cambio de resolución en caliente cuando el usuario la modifica.
+    _teardown()     cap.release().
+
+Toda la lógica de threading, throttle de FPS, detección de lag, reconexión
+automática y el pipeline ASCII vive ahora en BaseCaptureWorker. Este módulo
+conserva el comportamiento de apertura tal cual estaba (timeouts, fallback de
+backend, handle fantasma 0×0) para no cambiar en nada el modo cámara.
 """
 import threading
 import time
 import cv2
 
 from app.models.ascii_params_model import AsciiParams
-from app.models.ascii_frame_model import AsciiFrame
-from app.helpers.camera.frame_preprocessor import FramePreprocessor
-from app.helpers.ascii.ascii_converter import AsciiConverter
-from app.helpers.ascii.ascii_renderer import AsciiRenderer
+from app.helpers.capture.base_capture_worker import BaseCaptureWorker
 from typing import Callable
 
 # ── Constantes de apertura ────────────────────────────────────────────────────
 _OPEN_TIMEOUT     = 2.5  # Segundos máximos para que cv2.VideoCapture() abra el device.
-                          # Necesario porque DSHOW/MSMF pueden bloquearse indefinidamente
-                          # con drivers colgados; la apertura corre en hilo con join(timeout).
+                          # DSHOW/MSMF pueden bloquearse indefinidamente con drivers
+                          # colgados; la apertura corre en hilo con join(timeout).
 _MAX_OPEN_RETRIES = 3    # Intentos de apertura antes de declarar el índice inaccesible.
 
-# ── Constantes de reconexión ──────────────────────────────────────────────────
-_MAX_CONSECUTIVE_FAILURES = 10   # Frames fallidos (ret=False) consecutivos antes de
-                                  # intentar reabrir la cámara. Un valor bajo causaría
-                                  # reconexiones por drops momentáneos de USB; 10 filtra
-                                  # ruido sin demorar demasiado la detección de cortes reales.
-_RECONNECT_DELAY          = 1.5  # Segundos de espera entre reconexiones para dar tiempo
-                                  # al driver de liberar el device anterior.
-_MAX_RECONNECT_TOTAL      = 3    # Reconexiones máximas por sesión. Tras este límite se
-                                  # muestra "desconecta y reconecta el USB" y se detiene,
-                                  # evitando el bucle infinito cuando la cámara está
-                                  # físicamente desconectada (ej. C920 por sobrecalentamiento).
 
-# ── Constantes de detección de lag ────────────────────────────────────────────
-_LAG_WINDOW         = 20   # Ventana deslizante (frames) para el promedio de cap.read().
-                            # 20 frames = ~0.7 s a 30 fps. Equilibrio entre reactividad
-                            # y estabilidad de la medición.
-_LAG_THRESHOLD_MULT = 2.5  # Si avg_read > target_interval × 2.5, la cámara tarda más
-                            # del doble de lo esperado. Factor empírico para la C920:
-                            # a 2.0 hay falsos positivos en cambios de escena bruscos;
-                            # a 3.0 la detección llega tarde.
-_LAG_WARN_INTERVAL  = 8.0  # Intervalo mínimo (s) entre advertencias de lag consecutivas
-                            # para no saturar la UI con mensajes repetidos.
-
-
-class CameraWorker(threading.Thread):
+class CameraWorker(BaseCaptureWorker):
     """
-    Thread daemon que gestiona el ciclo completo de captura ASCII.
+    Worker de webcam. Hereda de BaseCaptureWorker todo el ciclo de vida.
 
-    Diseño de concurrencia:
-        - Corre como daemon thread: muere automáticamente si el proceso principal termina.
-        - _lock protege el acceso a _params, que puede ser modificado desde el hilo
-          principal (ParamsController) mientras el worker lee en su loop.
-        - _stop_event permite interrumpir _open_with_retries() desde stop(), evitando
-          que el worker quede bloqueado en un intento de apertura cuando el usuario
-          pulsa Start de nuevo o cierra la app.
-        - Los callbacks on_frame/on_status NO son thread-safe por sí solos; deben ser
-          envueltos en _FrameBridge (que usa pyqtSignal) para entregar al hilo Qt.
+    Constantes de reconexión / lag (heredadas y ajustadas para la C920):
+        MAX_CONSECUTIVE_FAILURES = 10  → filtra drops momentáneos de USB.
+        RECONNECT_DELAY          = 1.5 → da tiempo al driver a liberar el device.
+        MAX_RECONNECT_TOTAL      = 3   → evita el bucle infinito con la cámara
+                                        físicamente desconectada.
     """
+
+    SOURCE_TAG               = "CAM"
+    MAX_CONSECUTIVE_FAILURES = 10
+    RECONNECT_DELAY          = 1.5
+    MAX_RECONNECT_TOTAL      = 3
 
     def __init__(
         self,
@@ -79,30 +56,31 @@ class CameraWorker(threading.Thread):
         """
         Args:
             cam_index : índice cv2 de la cámara a abrir (0, 1, 2…).
-            params    : objeto AsciiParams compartido con el hilo principal.
-                        Se lee bajo _lock en cada iteración del loop.
+            params    : AsciiParams compartido con el hilo principal (leído bajo lock).
             on_frame  : callback(AsciiFrame | None). None indica error fatal.
-            on_status : callback(msg, level) para mensajes info/warn/error en la UI.
+            on_status : callback(msg, level) para la UI.
         """
-        super().__init__(daemon=True)
-        self._cam_index  = cam_index
-        self._params     = params
-        self._on_frame   = on_frame
-        self._on_status  = on_status or (lambda msg, lvl: None)
-        self._running    = False
-        self._paused     = False
-        self._lock       = threading.Lock()
-        self._stop_event = threading.Event()   # interrumpe apertura y retries cuando stop() es llamado
+        super().__init__(params, on_frame, on_status)
+        self._cam_index   = cam_index
+        self._cap: cv2.VideoCapture | None = None
+        self._current_res: tuple | None = None
 
-        self._preprocessor = FramePreprocessor()
-        self._converter    = AsciiConverter()
-        self._renderer     = AsciiRenderer()
+    # ── Mensajes específicos de cámara ────────────────────────────────────
 
-    # ── Helpers de estado ────────────────────────────────────────────────────
+    def _msg_reconnecting(self, count: int, total: int) -> str:
+        return f"Stream cortado — reconectando ({count}/{total})…"
 
-    def _status(self, msg: str, level: str = "info") -> None:
-        print(f"[CAM] {msg}")
-        self._on_status(msg, level)
+    def _msg_reconnect_failed(self) -> str:
+        return "Reconexión fallida — desconecta y vuelve a conectar el cable USB"
+
+    def _msg_fatal_disconnect(self) -> str:
+        return "Cámara desconectada — desconecta y vuelve a conectar el cable USB"
+
+    def _msg_lag(self, avg_ms: float) -> str:
+        return (
+            f"Cámara lenta ({avg_ms:.0f} ms/frame) — "
+            "reduce Columnas, FPS o Resolución para evitar desconexión"
+        )
 
     # ── Apertura ─────────────────────────────────────────────────────────────
 
@@ -177,180 +155,48 @@ class CameraWorker(threading.Thread):
                 time.sleep(0.5)
         return None
 
-    # ── Loop principal ────────────────────────────────────────────────────────
+    # ── Hooks de BaseCaptureWorker ───────────────────────────────────────
 
-    def run(self) -> None:
-        """
-        Punto de entrada del thread (llamado por threading.Thread.start()).
-
-        Flujo:
-            1. Abrir cámara con retries (DSHOW → MSMF).
-            2. Si falla → on_frame(None) y salir.
-            3. Loop:
-               a. Leer params bajo lock.
-               b. Aplicar cambio de resolución si el usuario la modificó.
-               c. Medir tiempo de cap.read() para detección de lag.
-               d. Si ret=False, incrementar racha de fallos; al llegar a
-                  _MAX_CONSECUTIVE_FAILURES intentar reconexión.
-               e. Si se superan _MAX_RECONNECT_TOTAL reconexiones → on_frame(None) y salir.
-               f. Frame válido: preprocesar → convertir → renderizar → on_frame(frame).
-               g. Throttle: dormir el tiempo necesario para respetar FPS sin superar
-                  la velocidad real de la cámara (effective_interval).
-        """
+    def _setup(self) -> bool:
         cap = self._open_with_retries(self._cam_index)
-
         if cap is None:
             self._status(
                 f"Índice {self._cam_index} no accesible — "
                 "verifica que la cámara no esté en uso por otra app",
                 "error",
             )
-            self._on_frame(None)
-            return
+            return False
 
+        self._cap         = cap
+        self._current_res = self._params.resolution
         w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         self._status(f"Índice {self._cam_index} activo ({w}×{h})")
+        return True
 
-        self._running        = True
-        _current_res         = self._params.resolution
-        _fail_streak         = 0
-        _reconnect_count     = 0
-        _read_times: list    = []   # ms de cada cap.read() para detectar lag
-        _last_lag_warn       = 0.0
-
-        while self._running:
-            if self._paused:
-                time.sleep(0.05)
-                continue
-
-            if self._stop_event.is_set():
-                break
-
-            # ── Leer params ──────────────────────────────────────────────
-            with self._lock:
-                params  = self._params
-                new_res = params.resolution
-
-            # ── Cambio de resolución en caliente ─────────────────────────
-            if new_res != _current_res:
-                try:
-                    rw, rh = new_res
-                    cap.set(cv2.CAP_PROP_FRAME_WIDTH,  rw)
-                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, rh)
-                    _current_res = new_res
-                except Exception:
-                    pass
-
-            # ── Captura de frame ──────────────────────────────────────────
-            t0 = time.monotonic()
+    def _apply_params(self, params: AsciiParams) -> None:
+        new_res = params.resolution
+        if new_res != self._current_res and self._cap is not None:
             try:
-                ret, frame_bgr = cap.read()
-            except Exception as e:
-                self._status(f"Excepción en cap.read(): {e}", "warn")
-                ret, frame_bgr = False, None
-            read_ms = (time.monotonic() - t0) * 1000.0
+                rw, rh = new_res
+                self._cap.set(cv2.CAP_PROP_FRAME_WIDTH,  rw)
+                self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, rh)
+                self._current_res = new_res
+            except Exception:
+                pass
 
-            # ── Manejo de frame fallido ───────────────────────────────────
-            if not ret or frame_bgr is None:
-                _fail_streak += 1
-                if _fail_streak < _MAX_CONSECUTIVE_FAILURES:
-                    continue
+    def _read_frame(self) -> tuple[bool, "any"]:
+        try:
+            ret, frame_bgr = self._cap.read()
+        except Exception as e:
+            self._status(f"Excepción en cap.read(): {e}", "warn")
+            return False, None
+        return bool(ret), frame_bgr
 
-                # Intentar reconexión
-                _reconnect_count += 1
-                if _reconnect_count > _MAX_RECONNECT_TOTAL:
-                    self._status(
-                        "Cámara desconectada — desconecta y vuelve a conectar el cable USB",
-                        "error",
-                    )
-                    self._on_frame(None)
-                    cap.release()
-                    return
-
-                self._status(
-                    f"Stream cortado — reconectando ({_reconnect_count}/{_MAX_RECONNECT_TOTAL})…",
-                    "warn",
-                )
-                cap.release()
-                time.sleep(_RECONNECT_DELAY)
-                cap = self._open_with_retries(self._cam_index)
-
-                if cap is None:
-                    self._status(
-                        "Reconexión fallida — desconecta y vuelve a conectar el cable USB",
-                        "error",
-                    )
-                    self._on_frame(None)
-                    return
-
-                w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                self._status(f"Reconectado ({w}×{h})")
-                _fail_streak = 0
-                continue
-
-            _fail_streak = 0  # frame exitoso → reset racha
-
-            # ── Detección de lag (sobrecarga de la cámara) ────────────────
-            _read_times.append(read_ms)
-            if len(_read_times) > _LAG_WINDOW:
-                _read_times.pop(0)
-            if len(_read_times) >= 10:
-                avg_ms     = sum(_read_times) / len(_read_times)
-                target_ms  = 1000.0 / max(1, params.fps)
-                now        = time.monotonic()
-                if avg_ms > target_ms * _LAG_THRESHOLD_MULT and now - _last_lag_warn > _LAG_WARN_INTERVAL:
-                    self._status(
-                        f"Cámara lenta ({avg_ms:.0f} ms/frame) — "
-                        "reduce Columnas, FPS o Resolución para evitar desconexión",
-                        "warn",
-                    )
-                    _last_lag_warn = now
-
-            # ── Procesado ASCII ───────────────────────────────────────────
+    def _teardown(self) -> None:
+        if self._cap is not None:
             try:
-                gray      = self._preprocessor.to_gray(frame_bgr)
-                gray      = self._preprocessor.normalize(gray)
-                ascii_str = self._converter.convert(
-                    frame=gray,
-                    cols=params.cols,
-                    invert=params.invert,
-                    charset_key=params.charset,
-                )
-                image_b64 = self._renderer.render_to_base64(
-                    ascii_str,
-                    params,
-                    color_frame=frame_bgr if params.color_mode else None,
-                )
-                self._on_frame(AsciiFrame(ascii_str=ascii_str, image_b64=image_b64))
-            except Exception as e:
-                import traceback
-                print(f"[CAM] Error procesando frame: {type(e).__name__}: {e}")
-                traceback.print_exc()
-                # No matar el loop por un frame procesado con error
-
-            # ── Throttle: respetar FPS sin superar la capacidad real ──────
-            # effective_interval = max(intervalo_pedido, tiempo_real × 0.9)
-            # El factor 0.9 deja un 10 % de margen sobre el tiempo real de lectura
-            # para no acumular trabajo pendiente cuando la cámara es lenta, pero
-            # sin igualar exactamente el tiempo de lectura (evita deriva acumulativa).
-            effective_interval = max(1.0 / max(1, params.fps), read_ms / 1000.0 * 0.9)
-            time.sleep(effective_interval)
-
-        cap.release()
-
-    # ── Control ───────────────────────────────────────────────────────────────
-
-    def stop(self) -> None:
-        self._running = False
-        self._stop_event.set()
-
-    def pause(self) -> None:
-        self._paused = True
-
-    def resume(self) -> None:
-        self._paused = False
-
-    def is_alive(self) -> bool:
-        return super().is_alive()
+                self._cap.release()
+            except Exception:
+                pass
+            self._cap = None

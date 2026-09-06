@@ -15,6 +15,7 @@ Contiene:
 from app.core.patterns.singleton import SingletonMeta
 from app.models.ascii_params_model import AsciiParams
 from app.enums.e_camera_state import CameraState
+from app.enums.e_source_type import SourceType
 
 
 class AppState(metaclass=SingletonMeta):
@@ -29,8 +30,17 @@ class AppState(metaclass=SingletonMeta):
         # Parámetros de conversión ASCII (cols, fps, charset, color_mode, etc.)
         self.params: AsciiParams = AsciiParams()
 
-        # Estado del ciclo de vida de la cámara
+        # Estado del ciclo de vida de la captura (IDLE/RUNNING/PAUSED/ERROR).
+        # El nombre se conserva por compatibilidad; aplica a cualquier fuente.
         self.camera_state: CameraState = CameraState.IDLE
 
-        # Índice cv2 de la cámara activa (0, 1, 2…)
+        # ── Fuente de frames activa ─────────────────────────────────────
+        self.source_type: SourceType = SourceType.CAMERA
+
+        # Cámara: índice cv2 de la cámara activa (0, 1, 2…)
         self.current_cam_index: int = 0
+
+        # Pantalla: índice de mss.monitors, región opcional y calidad de reescala
+        self.current_monitor_index: int = 1
+        self.screen_region: tuple | None = None      # (x, y, w, h) o None
+        self.screen_quality: float = 1.0            # factor 0.1–1.0

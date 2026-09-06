@@ -3,7 +3,7 @@ main_window.py — Ventana principal de ASCII Cam.
 
 Responsabilidades:
     - Construir el layout: display ASCII (izquierda) + sidebar scrollable (derecha).
-    - Instanciar y conectar CameraController y ParamsController.
+    - Instanciar y conectar CaptureController y ParamsController.
     - Albergar _FrameBridge, el puente thread-safe entre el worker de cámara
       (hilo de fondo) y los widgets Qt (hilo principal).
     - Propagar mensajes de estado/error del worker a la UI via señales Qt.
@@ -18,7 +18,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtGui import QPalette, QColor
 
 from app.config.config import APP_TITLE, APP_WIDTH, APP_HEIGHT
-from app.controllers.camera_controller import CameraController
+from app.controllers.capture_controller import CaptureController
 from app.controllers.params_controller import ParamsController
 from app.models.ascii_frame_model import AsciiFrame
 from app.views.components.display_widget import AsciiDisplayWidget
@@ -121,7 +121,7 @@ class MainWindow(QMainWindow):
         - _controls  : CameraControlsWidget — selector de cámara y botones.
         - _params_w  : ParamsWidget — sliders y opciones de conversión.
         - _bridge    : _FrameBridge — recibe callbacks del worker y emite señales Qt.
-        - _camera    : CameraController — gestiona el ciclo de vida del worker.
+        - _capture   : CaptureController — gestiona el worker de cámara o pantalla.
         - _params    : ParamsController — aplica cambios de parámetros en tiempo real.
     """
 
@@ -133,7 +133,7 @@ class MainWindow(QMainWindow):
 
         self._bridge  = _FrameBridge()
         self._params  = ParamsController()
-        self._camera  = CameraController(
+        self._capture = CaptureController(
             on_frame=self._bridge.on_frame,
             on_status=self._bridge.on_status,
         )
@@ -182,8 +182,8 @@ class MainWindow(QMainWindow):
             CameraWorker → _FrameBridge.on_frame() → frame_ready → _display.set_frame()
 
         Flujo de controles:
-            _controls.start_requested → _camera.start()
-            _controls.stop_requested  → _camera.stop() + _display.clear_frame()
+            _controls.start_requested → _capture.start(CaptureRequest)
+            _controls.stop_requested  → _capture.stop() + _display.clear_frame()
 
         Flujo de estado/error:
             _FrameBridge.cam_error  → _on_cam_error()
@@ -196,11 +196,11 @@ class MainWindow(QMainWindow):
         self._bridge.cam_error.connect(self._on_cam_error)
         self._bridge.cam_status.connect(self._on_cam_status)
 
-        # Controls → camera controller
-        self._controls.start_requested.connect(self._camera.start)
-        self._controls.stop_requested.connect(self._camera.stop)
-        self._controls.pause_requested.connect(self._camera.pause)
-        self._controls.resume_requested.connect(self._camera.resume)
+        # Controls → capture controller
+        self._controls.start_requested.connect(self._capture.start)
+        self._controls.stop_requested.connect(self._capture.stop)
+        self._controls.pause_requested.connect(self._capture.pause)
+        self._controls.resume_requested.connect(self._capture.resume)
 
         # Stop y búsqueda de cámaras → limpiar display (eliminar último frame mostrado)
         self._controls.stop_requested.connect(self._display.clear_frame)
@@ -221,7 +221,7 @@ class MainWindow(QMainWindow):
         self._controls.set_status(msg, level)
 
     def closeEvent(self, event):
-        self._camera.stop()
+        self._capture.stop()
         super().closeEvent(event)
 
 

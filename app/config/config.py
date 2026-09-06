@@ -9,6 +9,7 @@ DEFAULT_FPS     = int(os.getenv("DEFAULT_FPS", 15))
 DEFAULT_FONT_SIZE = int(os.getenv("DEFAULT_FONT_SIZE", 8))
 DEFAULT_INVERT  = os.getenv("DEFAULT_INVERT", "false").lower() == "true"
 DEFAULT_CHARSET = os.getenv("DEFAULT_CHARSET", "SIMPLE")
+DEFAULT_BRIGHTNESS = int(os.getenv("DEFAULT_BRIGHTNESS", 115))  # 100 = neutro, >100 aclara
 
 APP_TITLE = "ASCII Cam"
 APP_WIDTH = 1200
