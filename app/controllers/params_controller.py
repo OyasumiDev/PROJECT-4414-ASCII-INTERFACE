@@ -16,7 +16,9 @@ class ParamsController:
         return self._state.params
 
     def set_cols(self, value: int) -> None:
-        self._state.params.cols = max(20, min(300, value))
+        # Tope alto (500) para que la captura de pantalla sea legible; el modo
+        # color ya no escala con el nº de caracteres (ver AsciiRenderer).
+        self._state.params.cols = max(20, min(500, value))
 
     def set_fps(self, value: int) -> None:
         self._state.params.fps = max(1, min(120, value))
@@ -35,3 +37,7 @@ class ParamsController:
 
     def set_color_mode(self, value: bool) -> None:
         self._state.params.color_mode = value
+
+    def set_brightness(self, value: int) -> None:
+        # 100 = neutro. Rango amplio para oscurecer o aclarar bastante.
+        self._state.params.brightness = max(50, min(220, value))

@@ -26,18 +26,18 @@ def validate_cam_index(value) -> int:
 
 def validate_cols(value) -> int:
     """
-    Normaliza el número de columnas ASCII al rango [20, 300].
+    Normaliza el número de columnas ASCII al rango [20, 500].
 
-    Menos de 20 columnas produce arte ilegible; más de 300 puede saturar
-    el renderizador con imágenes muy grandes en modo color.
+    Menos de 20 columnas produce arte ilegible; el tope de 500 permite que la
+    captura de pantalla sea legible sin generar imágenes desmesuradas.
 
     Args:
         value: cualquier valor; se intenta convertir a int.
 
     Returns:
-        Entero entre 20 y 300 inclusive. Devuelve 100 (default) si falla.
+        Entero entre 20 y 500 inclusive. Devuelve 100 (default) si falla.
     """
     try:
-        return max(20, min(int(value), 300))
+        return max(20, min(int(value), 500))
     except (ValueError, TypeError):
         return 100
